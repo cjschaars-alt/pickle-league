@@ -393,13 +393,14 @@ export default function App() {
         const playerName = m[slot];
         const subKey = `${m.id}:${slot}`;
         const isSub = !!subMap[subKey]; // this slot has a substitution record
-        const pts = slot.startsWith('team1') ? (team1Match + team1Game) : (team2Match + team2Game);
+        const isTeam1 = slot.startsWith('team1');
 
         ensurePlayer(playerName);
         if (isSub) {
-          pointsMap[playerName].sub += pts;
+          // Subs only get game points (0.5 per game won), no win bonus
+          pointsMap[playerName].sub += isTeam1 ? team1Game : team2Game;
         } else {
-          pointsMap[playerName].regular += pts;
+          pointsMap[playerName].regular += isTeam1 ? (team1Match + team1Game) : (team2Match + team2Game);
         }
       });
     });
