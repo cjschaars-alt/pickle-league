@@ -1273,6 +1273,41 @@ export default function App() {
                 <div className="assignment-preview">
                   <h3>Player Assignment — Week {selectedWeek}</h3>
                   <p className="subtitle">Locked players can only play one day. Flex players can be moved between sessions.</p>
+                  {(() => {
+                    const sunData = weekAssignment.sunday;
+                    const tueData = weekAssignment.tuesday;
+                    const sunTotal = sunData.sessionId ? sunData.locked.length + sunData.flex.length : 0;
+                    const tueTotal = tueData.sessionId ? tueData.locked.length + tueData.flex.length : 0;
+                    const sunLocked = sunData.sessionId ? sunData.locked.length : 0;
+                    const sunFlex = sunData.sessionId ? sunData.flex.length : 0;
+                    const tueLocked = tueData.sessionId ? tueData.locked.length : 0;
+                    const tueFlex = tueData.sessionId ? tueData.flex.length : 0;
+                    const totalUnique = new Set([
+                      ...(sunData.locked || []), ...(sunData.flex || []),
+                      ...(tueData.locked || []), ...(tueData.flex || [])
+                    ]).size;
+                    return (
+                      <div className="assignment-summary">
+                        <div className="assignment-summary-row">
+                          {sunData.sessionId && (
+                            <div className="assignment-summary-day">
+                              <span className="summary-day-label">☀️ Sunday</span>
+                              <span className="summary-day-total">{sunTotal} players</span>
+                              <span className="summary-day-breakdown">{sunLocked} locked · {sunFlex} flex</span>
+                            </div>
+                          )}
+                          {tueData.sessionId && (
+                            <div className="assignment-summary-day">
+                              <span className="summary-day-label">🌙 Tuesday</span>
+                              <span className="summary-day-total">{tueTotal} players</span>
+                              <span className="summary-day-breakdown">{tueLocked} locked · {tueFlex} flex</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="assignment-summary-total">✅ All {totalUnique} available players scheduled</div>
+                      </div>
+                    );
+                  })()}
                   <div className="assignment-columns">
                     {['sunday', 'tuesday'].map(day => {
                       const data = weekAssignment[day];
