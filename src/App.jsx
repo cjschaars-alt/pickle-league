@@ -184,8 +184,13 @@ export default function App() {
       a => a.player_name === playerName && a.session_id === sessionId
     );
     if (existing) {
+      // Optimistic local update — remove immediately
+      setAvailability(prev => prev.filter(a => a.id !== existing.id));
       await supabase.from('availability').delete().eq('id', existing.id);
     } else {
+      // Optimistic local update — add immediately
+      const tempId = `temp-${Date.now()}`;
+      setAvailability(prev => [...prev, { id: tempId, player_name: playerName, session_id: sessionId }]);
       await supabase.from('availability').insert({ player_name: playerName, session_id: sessionId });
     }
   };
