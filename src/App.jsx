@@ -1149,14 +1149,47 @@ export default function App() {
                   const hasSunday = weekSess.some(s => s.day_of_week === 'Sunday');
                   const hasTuesday = weekSess.some(s => s.day_of_week === 'Tuesday');
                   const showToggle = hasSunday && hasTuesday;
-                  return showToggle ? (
-                    <div className="day-toggle">
-                      <button className={`day-toggle-btn ${selectedDay === 'Sunday' ? 'day-toggle-active' : ''}`} onClick={() => setSelectedDay('Sunday')}>
-                        Sunday
-                      </button>
-                      <button className={`day-toggle-btn ${selectedDay === 'Tuesday' ? 'day-toggle-active' : ''}`} onClick={() => setSelectedDay('Tuesday')}>
-                        Tuesday
-                      </button>
+                  return (
+                    <div className="day-toggle-enhanced">
+                      {hasSunday && (() => {
+                        const sunSession = weekSess.find(s => s.day_of_week === 'Sunday');
+                        const sunDate = sunSession ? formatDateLong(sunSession.session_date) : '';
+                        const sunRel = sunSession ? getRelativeLabel(sunSession.session_date) : '';
+                        return (
+                          <button className={`day-toggle-card ${selectedDay === 'Sunday' ? 'day-toggle-card-active' : ''}`} onClick={() => setSelectedDay('Sunday')}>
+                            <span className="day-toggle-label">☀️ Sunday Games</span>
+                            <span className="day-toggle-date">{sunDate}</span>
+                            {sunRel && <span className={`day-toggle-rel ${sunRel === 'Today' ? 'rel-today' : ''}`}>{sunRel}</span>}
+                          </button>
+                        );
+                      })()}
+                      {hasTuesday && (() => {
+                        const tueSession = weekSess.find(s => s.day_of_week === 'Tuesday');
+                        const tueDate = tueSession ? formatDateLong(tueSession.session_date) : '';
+                        const tueRel = tueSession ? getRelativeLabel(tueSession.session_date) : '';
+                        return (
+                          <button className={`day-toggle-card ${selectedDay === 'Tuesday' ? 'day-toggle-card-active' : ''}`} onClick={() => setSelectedDay('Tuesday')}>
+                            <span className="day-toggle-label">🌙 Tuesday Games</span>
+                            <span className="day-toggle-date">{tueDate}</span>
+                            {tueRel && <span className={`day-toggle-rel ${tueRel === 'Today' ? 'rel-today' : ''}`}>{tueRel}</span>}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  ) : hasSunday || hasTuesday ? (
+                    <div className="day-toggle-enhanced">
+                      {(() => {
+                        const sess = weekSess[0];
+                        const dateStr = sess ? formatDateLong(sess.session_date) : '';
+                        const relStr = sess ? getRelativeLabel(sess.session_date) : '';
+                        return (
+                          <div className="day-toggle-card day-toggle-card-active day-toggle-card-solo">
+                            <span className="day-toggle-label">{sess?.day_of_week === 'Sunday' ? '☀️' : '🌙'} {sess?.day_of_week} Games</span>
+                            <span className="day-toggle-date">{dateStr}</span>
+                            {relStr && <span className={`day-toggle-rel ${relStr === 'Today' ? 'rel-today' : ''}`}>{relStr}</span>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : null;
                 })()}
@@ -1168,10 +1201,7 @@ export default function App() {
                     return (
                       <div key={session.id} className="week-session-card">
                         <div className="week-session-header">
-                          <span className="week-session-day">{session.day_of_week}</span>
-                          <span className="week-session-date">{formatDate(session.session_date)}</span>
-                          {relLabel && <span className={`week-session-when ${relLabel === 'Today' ? 'when-today' : ''}`}>{relLabel}</span>}
-                          <span className="week-session-count">{getAvailForSession(session.id).length} available</span>
+                          <span className="week-session-count">{getAvailForSession(session.id).length} players available</span>
                         </div>
                         {['7pm', '8pm', '9pm'].map(slot => {
                           const slotMatches = sessionMatches.filter(m => m.time_slot === slot);
