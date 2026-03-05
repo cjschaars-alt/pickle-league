@@ -328,6 +328,35 @@
 .avail-chip-in .avail-chip-date { color: var(--green); }
 .avail-chip-in .avail-chip-day { color: var(--green); }
 
+/* Time slot pills */
+.avail-chip-wrapper {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.time-slot-pills { display: flex; gap: 3px; }
+.time-pill {
+  padding: 2px 6px; font-size: 10px; font-weight: 700;
+  font-family: 'Montserrat', sans-serif; border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+  min-width: 24px; text-align: center;
+}
+.time-pill-active {
+  background: rgba(var(--green-rgb),0.15); color: var(--green);
+  border-color: rgba(var(--green-rgb),0.3);
+}
+.time-pill-off {
+  background: rgba(var(--surface-rgb),0.04); color: var(--text-muted);
+  border-color: rgba(var(--surface-rgb),0.08);
+}
+.time-pill-active:hover { background: rgba(var(--green-rgb),0.25); }
+.time-pill-off:hover { background: rgba(var(--surface-rgb),0.08); color: var(--text-secondary); }
+
+/* Who's Playing slot summary */
+.whos-slot-summary {
+  display: flex; gap: 12px; width: 100%;
+  padding-top: 6px; border-top: 1px solid rgba(var(--surface-rgb),0.06); margin-top: 4px;
+}
+.whos-slot-count { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
 /* Who's Playing */
 .whos-playing-section {
   margin-top: 24px;
@@ -784,6 +813,7 @@
   .player-grid { grid-template-columns: 1fr; }
   .avail-matrix { gap: 6px; }
   .avail-chip { min-width: 64px; padding: 8px 10px; }
+  .time-pill { padding: 2px 5px; font-size: 9px; min-width: 20px; }
   .team-players { font-size: 13px; }
   .score-input { width: 56px; font-size: 20px; }
   .season-stats-grid { grid-template-columns: repeat(2, 1fr); }

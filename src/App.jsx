@@ -4,6 +4,7 @@ import './App.css';
 
 const TABS = ['Home', 'Schedule', 'Availability', 'Standings'];
 const ADMINS = ['Connor Schaars', 'Nathan Amburn'];
+const TIME_SLOTS = ['7pm', '8pm', '9pm'];
 
 function formatDate(iso) {
   const d = new Date(iso + 'T12:00:00');
@@ -188,10 +189,38 @@ export default function App() {
       setAvailability(prev => prev.filter(a => a.id !== existing.id));
       await supabase.from('availability').delete().eq('id', existing.id);
     } else {
-      // Optimistic local update — add immediately
+      // Optimistic local update — add immediately with all time slots
       const tempId = `temp-${Date.now()}`;
-      setAvailability(prev => [...prev, { id: tempId, player_name: playerName, session_id: sessionId }]);
-      await supabase.from('availability').insert({ player_name: playerName, session_id: sessionId });
+      setAvailability(prev => [...prev, { id: tempId, player_name: playerName, session_id: sessionId, time_slots: [...TIME_SLOTS] }]);
+      await supabase.from('availability').insert({ player_name: playerName, session_id: sessionId, time_slots: TIME_SLOTS });
+    }
+  };
+
+  const toggleTimeSlot = async (playerName, sessionId, slot) => {
+    const existing = availability.find(
+      a => a.player_name === playerName && a.session_id === sessionId
+    );
+    if (!existing) return;
+
+    const currentSlots = existing.time_slots || TIME_SLOTS;
+    let newSlots;
+
+    if (currentSlots.includes(slot)) {
+      newSlots = currentSlots.filter(s => s !== slot);
+    } else {
+      newSlots = [...currentSlots, slot].sort((a, b) => TIME_SLOTS.indexOf(a) - TIME_SLOTS.indexOf(b));
+    }
+
+    if (newSlots.length === 0) {
+      // No hours selected = remove availability entirely
+      setAvailability(prev => prev.filter(a => a.id !== existing.id));
+      await supabase.from('availability').delete().eq('id', existing.id);
+    } else {
+      // Optimistic update
+      setAvailability(prev => prev.map(a =>
+        a.id === existing.id ? { ...a, time_slots: newSlots } : a
+      ));
+      await supabase.from('availability').update({ time_slots: newSlots }).eq('id', existing.id);
     }
   };
 
@@ -299,7 +328,6 @@ export default function App() {
 
   const confirmAndGenerateMatches = async () => {
     const ptsMap = getPlayerPointsMap();
-    const timeSlots = ['7pm', '8pm', '9pm'];
 
     for (const day of ['sunday', 'tuesday']) {
       const data = weekAssignment[day];
@@ -316,19 +344,46 @@ export default function App() {
 
       await supabase.from('matches').delete().eq('session_id', data.sessionId);
 
-      const { matches: dayMatches } = generateBalancedMatches(allPlayers, ptsMap);
-      const rows = dayMatches.map((m, idx) => ({
-        session_id: data.sessionId,
-        match_number: idx + 1,
-        time_slot: timeSlots[Math.floor(idx / 2)] || '9pm',
-        team1_player1: m.team1[0],
-        team1_player2: m.team1[1],
-        team2_player1: m.team2[0],
-        team2_player2: m.team2[1],
-      }));
+      // Build per-slot player pools
+      const slotPlayers = {};
+      TIME_SLOTS.forEach(slot => {
+        slotPlayers[slot] = allPlayers.filter(p => {
+          const avail = availability.find(a => a.player_name === p && a.session_id === data.sessionId);
+          return avail && (avail.time_slots || TIME_SLOTS).includes(slot);
+        });
+      });
 
-      if (rows.length > 0) {
-        await supabase.from('matches').insert(rows);
+      // Process most constrained slots first (fewest available players)
+      const sortedSlots = [...TIME_SLOTS].sort(
+        (a, b) => slotPlayers[a].length - slotPlayers[b].length
+      );
+
+      const matched = new Set();
+      const allRows = [];
+      let matchNum = 0;
+
+      for (const slot of sortedSlots) {
+        const eligible = slotPlayers[slot].filter(p => !matched.has(p));
+        if (eligible.length < 4) continue;
+
+        const { matches: slotMatches } = generateBalancedMatches(eligible, ptsMap);
+        slotMatches.forEach(m => {
+          matchNum++;
+          [...m.team1, ...m.team2].forEach(p => matched.add(p));
+          allRows.push({
+            session_id: data.sessionId,
+            match_number: matchNum,
+            time_slot: slot,
+            team1_player1: m.team1[0],
+            team1_player2: m.team1[1],
+            team2_player1: m.team2[0],
+            team2_player2: m.team2[1],
+          });
+        });
+      }
+
+      if (allRows.length > 0) {
+        await supabase.from('matches').insert(allRows);
       }
     }
 
@@ -529,6 +584,11 @@ export default function App() {
 
   const getAvailForSession = (sessionId) =>
     availability.filter(a => a.session_id === sessionId).map(a => a.player_name);
+
+  const getAvailForSessionSlot = (sessionId, slot) =>
+    availability
+      .filter(a => a.session_id === sessionId && (a.time_slots || TIME_SLOTS).includes(slot))
+      .map(a => a.player_name);
 
   const getMatchesForSession = (sessionId) =>
     matches.filter(m => m.session_id === sessionId);
@@ -938,18 +998,34 @@ export default function App() {
                 </p>
                 <div className="avail-matrix">
                   {sessions.map(s => {
-                    const isIn = availability.some(a => a.session_id === s.id && a.player_name === currentUser);
+                    const availRow = availability.find(a => a.session_id === s.id && a.player_name === currentUser);
+                    const isIn = !!availRow;
+                    const activeSlots = availRow?.time_slots || TIME_SLOTS;
                     return (
-                      <button
-                        key={s.id}
-                        className={`avail-chip ${isIn ? 'avail-chip-in' : 'avail-chip-out'}`}
-                        onClick={() => toggleAvailability(currentUser, s.id)}
-                      >
-                        <span className={`avail-dot ${isIn ? 'avail-dot-green' : 'avail-dot-red'}`} />
-                        <span className="avail-chip-day">{s.day_of_week.slice(0, 3)}</span>
-                        <span className="avail-chip-date">{formatDate(s.session_date).replace(/^\w+, /, '')}</span>
-                        {s.is_tournament && <span className="date-tourney-badge">T</span>}
-                      </button>
+                      <div key={s.id} className="avail-chip-wrapper">
+                        <button
+                          className={`avail-chip ${isIn ? 'avail-chip-in' : 'avail-chip-out'}`}
+                          onClick={() => toggleAvailability(currentUser, s.id)}
+                        >
+                          <span className={`avail-dot ${isIn ? 'avail-dot-green' : 'avail-dot-red'}`} />
+                          <span className="avail-chip-day">{s.day_of_week.slice(0, 3)}</span>
+                          <span className="avail-chip-date">{formatDate(s.session_date).replace(/^\w+, /, '')}</span>
+                          {s.is_tournament && <span className="date-tourney-badge">T</span>}
+                        </button>
+                        {isIn && (
+                          <div className="time-slot-pills">
+                            {TIME_SLOTS.map(slot => (
+                              <button
+                                key={slot}
+                                className={`time-pill ${activeSlots.includes(slot) ? 'time-pill-active' : 'time-pill-off'}`}
+                                onClick={() => toggleTimeSlot(currentUser, s.id, slot)}
+                              >
+                                {slot.replace('pm', '')}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -987,9 +1063,19 @@ export default function App() {
                           </button>
                           {isExpanded && (
                             <div className="whos-player-list">
-                              {availPlayers.length > 0 ? availPlayers.map(p => (
-                                <span key={p} className="whos-player-chip">{p}</span>
-                              )) : (
+                              {availPlayers.length > 0 ? (
+                                <>
+                                  {availPlayers.map(p => (
+                                    <span key={p} className="whos-player-chip">{p}</span>
+                                  ))}
+                                  <div className="whos-slot-summary">
+                                    {TIME_SLOTS.map(slot => {
+                                      const count = getAvailForSessionSlot(s.id, slot).length;
+                                      return <span key={slot} className="whos-slot-count">{slot}: {count}</span>;
+                                    })}
+                                  </div>
+                                </>
+                              ) : (
                                 <span className="muted">No one yet</span>
                               )}
                             </div>

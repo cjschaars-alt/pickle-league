@@ -35,6 +35,7 @@ CREATE TABLE availability (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   player_name TEXT NOT NULL REFERENCES players(name) ON DELETE CASCADE,
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  time_slots TEXT[] NOT NULL DEFAULT '{7pm,8pm,9pm}',
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(player_name, session_id)
 );
